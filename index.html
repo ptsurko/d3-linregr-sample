@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+
+<!-- Example based on http://bl.ocks.org/mbostock/3887118 -->
+<!-- Tooltip example from http://www.d3noob.org/2013/01/adding-tooltips-to-d3js-graph.html -->
+
+<style>
+body {
+  font: 11px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  shape-rendering: crispEdges;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.plane {
+  fill: #eaeaf2;
+  opacity: .5;
+}
+
+.dot {
+  fill: #5c7eb7;
+  stroke: #5c7eb7;
+}
+
+.regr-confidence {
+  fill: #5c7eb7;
+  opacity: .2;
+}
+
+.regr-line {
+  stroke: #5c7eb7;
+  stroke-width: 2;
+}
+</style>
+<body>
+<h1>Linear regression sample with confidence intervals</h1>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.13.1/lodash.js"></script>
+
+<script>
+var margin = {top: 20, right: 20, bottom: 30, left: 40},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+// setup x
+var xValue = function(d) { return d[0];}, // data -> value
+    xScale = d3.scale.linear().range([0, width]), // value -> display
+    xMap = function(d) { return xScale(xValue(d));}, // data -> display
+    xAxis = d3.svg.axis().scale(xScale).orient("bottom").innerTickSize(-height).outerTickSize(0);
+
+// setup y
+var yValue = function(d) { return d[1];}, // data -> value
+    yScale = d3.scale.linear().range([height, 0]), // value -> display
+    yMap = function(d) { return yScale(yValue(d));}, // data -> display
+    yAxis = d3.svg.axis().scale(yScale).orient("left").ticks(6).innerTickSize(-width).outerTickSize(0);
+
+// add the graph canvas to the body of the webpage
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var regrLine = regressionLine()
+    .xScale(xScale)
+    .yScale(yScale)
+    .xValue(xValue)
+    .yValue(yValue);
+
+var data = generateData();
+
+var minX = d3.min(data, xValue);
+var maxX = d3.max(data, xValue);
+var minY = d3.min(data, yValue);
+var maxY = d3.max(data, yValue);
+
+var diffX = (maxX - minX) * 0.05;
+var diffY = (maxY - minY) * 0.05;
+
+xScale.domain([d3.min(data, xValue) - diffX, d3.max(data, xValue) + diffX]);
+yScale.domain([d3.min(data, yValue) - diffY, d3.max(data, yValue) + diffY]);
+
+svg.append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", width)
+    .attr("height", height)
+    .attr("class", "plane");
+
+// x-axis
+svg.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + height + ")")
+    .call(xAxis)
+  .append("text")
+    .attr("class", "label")
+    .attr("x", width / 2)
+    .attr("y", "2.5em")
+    .style("text-anchor", "middle")
+    .text("Age");
+
+// y-axis
+svg.append("g")
+    .attr("class", "y axis")
+    .call(yAxis)
+  .append("text")
+    .attr("class", "label")
+    .attr("transform", "rotate(-90)")
+    .attr("y", "-2em")
+    .attr("x", -height / 2)
+    .style("text-anchor", "middle")
+    .text("Some parameter");
+
+svg.selectAll(".dot")
+    .data(data)
+  .enter().append("circle")
+    .attr("class", "dot")
+    .attr("r", 2)
+    .attr("cx", xMap)
+    .attr("cy", yMap);
+
+svg.selectAll(".regr")
+    .data([data])
+    .enter()
+      .append("g")
+      .attr("class", "regr")
+      .call(regrLine);
+
+function regressionLine() {
+  var xScale, yScale, xValue, yValue;
+  var area = d3.svg.area()
+      .x(function(d) { return xScale(xValue(d[0])); })
+      .y0(function(d) { return yScale(yValue(d[0])); })
+      .y1(function(d) { return yScale(yValue(d[1])); });
+  var line = d3.svg.line()
+      .interpolate("basic")
+      .x(function(d) { return xScale(xValue(d)); })
+      .y(function(d) { return yScale(yValue(d)); });
+
+  function regressionLineBehavior(selection) {
+    selection.each(function(data) {
+      // var regr = regression('linear', data, 3);
+      var regr = calculateLinearRegression(data);
+      var regressionService = new RegressionService();
+
+      var errorPoints = regressionService.getErrorLines(data, regr.points);
+      var lowerConfidencePoints = prepareConfidencePoints(errorPoints.lowerErrorPoints);
+      var upperConfidencePoints = prepareConfidencePoints(errorPoints.upperErrorPoints);
+
+      var confidencePoints = _.zip(lowerConfidencePoints, upperConfidencePoints);
+      d3.select(this).append("path")
+          .datum(confidencePoints)
+          .attr("class", "regr-confidence")
+          .attr("d", area);
+
+      var xDomain = xScale.domain();
+      d3.select(this).append("line")
+          .attr("class", "regr-line")
+          .attr("x1", xScale(xDomain[0]))
+          .attr("y1", yScale((xDomain[0] * regr.slope) + regr.intercept))
+          .attr("x2", xScale(xDomain[1]))
+          .attr("y2", yScale((xDomain[1] * regr.slope) + regr.intercept));
+    });
+  }
+
+  regressionLineBehavior.xValue = function(xValueValue) {
+    xValue = xValueValue;
+    return regressionLineBehavior;
+  };
+
+  regressionLineBehavior.yValue = function(yValueValue) {
+    yValue = yValueValue;
+    return regressionLineBehavior;
+  };
+
+  regressionLineBehavior.xScale = function(xScaleValue) {
+    xScale = xScaleValue;
+    return regressionLineBehavior;
+  };
+
+  regressionLineBehavior.yScale = function(yScaleValue) {
+    yScale = yScaleValue;
+    return regressionLineBehavior;
+  };
+
+  function calculateLinearRegression(data) {
+    // Formula is taken from http://stackoverflow.com/questions/6195335/linear-regression-in-javascript
+    var n = data.length;
+    var sum_x = 0;
+    var sum_y = 0;
+    var sum_xy = 0;
+    var sum_xx = 0;
+    var sum_yy = 0;
+
+    data.forEach(function(pair) {
+      sum_x += xValue(pair);
+      sum_y += yValue(pair);
+      sum_xy += xValue(pair) * yValue(pair);
+      sum_xx += xValue(pair) * xValue(pair);
+      sum_yy += yValue(pair) * yValue(pair);
+    });
+
+    var slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
+    var intercept = (sum_y - slope * sum_x) / n;
+    var points = data.map(function(pair) {
+      return [xValue(pair), slope * xValue(pair) + intercept];
+    });
+
+    return {
+      slope: slope,
+      intercept: intercept,
+      points: points
+    };
+  };
+
+  function prepareConfidencePoints(errorPoints) {
+    var xDomain = xScale.domain();
+
+    var uniqueErrorPoints = _.sortBy(_.uniqBy(errorPoints, xValue), xValue);
+    var pointsCount = uniqueErrorPoints.length;
+    var startLine = calculateLineFromPoints(uniqueErrorPoints[0], uniqueErrorPoints[1]);
+    var endLine = calculateLineFromPoints(uniqueErrorPoints[pointsCount - 1], uniqueErrorPoints[pointsCount - 2]);
+
+    uniqueErrorPoints.unshift([xDomain[0], xDomain[0] * startLine.a + startLine.b]);
+    uniqueErrorPoints.push([xDomain[1], xDomain[1] * endLine.a + endLine.b]);
+
+    return uniqueErrorPoints;
+  }
+
+  function calculateLineFromPoints(p1, p2) {
+    var a = (yValue(p1) - yValue(p2)) / (xValue(p1) - xValue(p2));
+    return {
+      a: a,
+      b: yValue(p1) - a * xValue(p1)
+    };
+  }
+
+  function RegressionService() {
+    function getErrorLines(inputPoints, outputPoints) {
+      // Formula is take from https://www2.stat.duke.edu/courses/Spring13/sta101.001/slides/unit6lec3H.pdf
+      var stdErr = Math.sqrt(_.sum(
+          _.zip(inputPoints.map(yValue), outputPoints.map(yValue))
+              .map(pair => Math.pow(pair[1] - pair[0], 2)))
+          / (inputPoints.length - 2));
+      var meanX = _.sum(inputPoints.map(xValue)) / inputPoints.length;
+
+      var stdX = Math.sqrt(
+          _.sum(inputPoints.map(function(val) {
+            return Math.pow(xValue(val) - meanX, 2);
+          })) / inputPoints.length);
+
+      var errorMargin = outputPoints.map(function(val) {
+        return 1.96 * stdErr * Math.sqrt(
+            1 / inputPoints.length +
+            Math.pow((xValue(val) - meanX), 2)
+                / ((inputPoints.length - 1) * Math.pow(stdX, 2)));
+      });
+
+      return {
+        lowerErrorPoints: _.zip(outputPoints, errorMargin).map(function(pair) {
+          return [xValue(pair[0]), yValue(pair[0]) - pair[1]];
+        }),
+        upperErrorPoints: _.zip(outputPoints, errorMargin).map(function(pair) {
+          return [xValue(pair[0]), yValue(pair[0]) + pair[1]];
+        })
+      };
+    }
+
+    return {
+      getErrorLines: getErrorLines
+    }
+  }
+
+  return regressionLineBehavior;
+}
+
+function generateData() {
+  var data = [];
+  var minY = 5;
+  var dataCount = 1000;
+  for (var i = 0; i < dataCount; i++) {
+    var shift = i * 3 / dataCount;
+    data.push([
+      getRandomInt(16, 80),
+      getRandomFloat(minY, minY + 3)
+    ]);
+  }
+  return data;
+}
+
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getRandomFloat(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+</script>
+</body>
+</html>
