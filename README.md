@@ -1,5 +1,7 @@
 # Linear regression sample with confidence intervals
 
+![sample image](./sample.png)
+
 ## Used Resources:
  * [regression-js](https://github.com/Tom-Alexander/regression-js)
  * [Confidence interval calculation](https://github.com/Tom-Alexander/regression-js/issues/27)
