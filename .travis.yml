@@ -1,0 +1,12 @@
+env:
+  global:
+  - GH_REF: github.com/ptsurko/d3-linregr-sample.git
+  - GIT_NAME: Travis-CI
+  - GIT_EMAIL: travis@nodemeatspace.com
+  - secure: ZQMnofPgPs0DU2fYaGvJjix559+HcvoSvRdUr2A7hOLH9WRCFEKkGSAxbUNynwdkVUpa0oDgQb/YJK4RYUQCijV4ppfFyAIezPqfo7wsEdOFaoGzXTj9zMclc4LyI1jqhff24KUUCbBqaSxbcAY3VP6eJgPwq8I7RrGN8XmBTui9Lo9jcAkUtVEmDa/7oGHAhr1/2Thb0wWySSP6wdJvlXpVZB9P++iizl+paAkKDDfp9r0b6wpZmBbiYvn2ZPEW5lMwavP+/jxwlqUib/xFl1Sas0lVzvHgQIWE58qio3RD8JsQy2xFjUqkns0xpmh0RzhT75B/fqGcJHPeidtclgtKDF57slE4QoHxfcYuOEH7uM3elmiNbU7SbdwZMwzBZXOQ6T17z/tkiM5L8SWDFebEIx+GqxcnPlqqfDDei2V9UlN7KOOzOvRZgKC01soCuIaxx0iOL+E1lxElngR0QHc2vYkSYjtTiQyjY4zJNhhGaAQay2FBmzSUXua4Qr2zpAHc7R3c2LCNexyCnhp8aoa7KTbab1E3N3v1u8BnOMWUbrzgAKHDvkV1gDkPdGUKOeTVSRkFL0PQhFfkSlJr6oPgY4Qb1jqrlDLyCN5sdSf6Ztc9lpFarKc5D2q0e9lM4CLmchrGAxlU5h0j4AK+AAy6EttQcYOXDJjW5QbxEy4=
+before_install:
+  - chmod +x deploy_ghpages.sh
+script: bash ./deploy_ghpages.sh
+branches:
+  only:
+    - master
